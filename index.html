@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DAI Action-Reward & Creator Control Center</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.13.0/dist/ethers.umd.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #0f172a; color: #f8fafc; margin: 0; padding: 20px; }
+    .container { max-width: 760px; margin: 0 auto; }
+    .card { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+    .stat { background: #0f172a; padding: 14px; border-radius: 8px; border: 1px solid #334155; }
+    button { background: #16a34a; color: white; border: none; padding: 12px 18px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 15px; }
+    button:disabled { background: #475569; cursor: not-allowed; }
+    button.secondary { background: #2563eb; }
+    input { padding: 10px; border-radius: 6px; border: 1px solid #475569; background: #0f172a; color: white; width: 240px; }
+    .green { color: #4ade80; font-size: 26px; font-weight: bold; margin: 6px 0; }
+    .log { font-size: 13px; color: #94a3b8; word-break: break-all; margin-top: 10px; }
+  </style>
+</head>
+<body>
+<div class="container">
+  <h2>DAI Action-Reward & Creator Control Center</h2>
+
+  <div class="card">
+    <h3>Player Wallet & DAI Withdrawal</h3>
+    <button class="secondary" onclick="connectWallet()">1. Connect MetaMask / Trust Wallet</button>
+    <p id="walletInfo" class="log">Wallet: Not connected</p>
+    <div class="stat" style="margin: 14px 0;">
+      <div>Available Earned Balance</div>
+      <div id="daiBalance" class="green">$0.0000 DAI</div>
+      <small>Minimum withdrawal: $1.00 DAI  | Network: Base Sepolia Testnet</small>
+    </div>
+    <button id="withdrawBtn" onclick="withdrawDai()" disabled>2. Withdraw DAI to Wallet</button>
+    <p id="playerStatus" class="log"></p>
+  </div>
+
+  <div class="card">
+    <h3>Creator Live Revenue & Anti-Cheat Monitor</h3>
+    <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+      <input type="password" id="adminKey" value="my_admin_password_123" placeholder="Enter ADMIN_API_KEY" />
+      <button class="secondary" onclick="loadAdminStats()">Load Live Profit Stats</button>
+    </div>
+    <div class="grid">
+      <div class="stat"><div>Your Net Profit (24h)</div><div id="netProfit" class="green">$0.00</div></div>
+      <div class="stat"><div>Gross Ad Revenue (24h)</div><div id="grossRev" class="green" style="color:#38bdf8;">$0.00</div></div>
+      <div class="stat"><div>Pending Player DAI</div><div id="pendingDai" style="font-size:20px;font-weight:bold;margin-top:6px;">$0.00</div></div>
+      <div class="stat"><div>Players vs. Frozen Bots</div><div id="playerCounts" style="font-size:18px;font-weight:bold;margin-top:6px;">0 Active / 0 Bots</div></div>
+    </div>
+  </div>
+</div>
+<script>
+  const API_URL = "https://dai-api-lhp7.onrender.com";
+  const VAULT_ADDRESS = "0xCF1e58E6eA0BDFf97Fe6856b46Fd094B66613DcE";
+  const VAULT_ABI = ["function claimReward(uint256 amount, bytes32 voucherId, uint256 deadline, bytes signature) external"];
+  let userAddress = "";
+
+  function getDeviceId() {
+    let id = localStorage.getItem("app_device_id");
+    if (!id) { id = "dev_" + Math.random().toString(36).substring(2, 15); localStorage.setItem("app_device_id", id); }
+    return id;
+  }
+
+  async function connectWallet() {
+    if (!window.ethereum) return alert("Install MetaMask or Coinbase Wallet extension first.");
+    const provider = new ethers.BrowserProvider(window.ethereum);
+    const signer = await provider.getSigner();
+    userAddress = await signer.getAddress();
+    document.getElementById("walletInfo").innerText = "Connected: " + userAddress;
+
+    const res = await fetch(API_URL + "/api/register-player", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userAddress, deviceId: getDeviceId() })
+    });
+    const data = await res.json();
+    if (data.player) {
+      const bal = Number(data.player.dai_balance);
+      document.getElementById("daiBalance").innerText = "$" + bal.toFixed(4) + " DAI";
+      document.getElementById("withdrawBtn").disabled = bal < 1.0;
+    } else if (data.error) {
+      document.getElementById("walletInfo").innerText = "Notice: " + data.error;
+    }
+  }
+
+  async function withdrawDai() {
+    const statusEl = document.getElementById("playerStatus");
+    try {
+      statusEl.innerText = "Requesting signed payout ticket...";
+      const res = await fetch(API_URL + "/api/withdraw-dai", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({userAddress: userAddress})
+      });
+      const voucher = await res.json();
+      if (!res.ok) throw new Error(voucher.error);
+
+      statusEl.innerText = "Confirm transaction in your wallet...";
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+      const vault = new ethers.Contract(VAULT_ADDRESS, VAULT_ABI, signer);
+      const tx = await vault.claimReward(voucher.amount, voucher.voucherId, voucher.deadline, voucher.signature);
+
+      statusEl.innerText = "Sending DAI on-chain...";
+      const receipt = await tx.wait();
+      document.getElementById("daiBalance").innerText = "$0.0000 DAI";
+      document.getElementById("withdrawBtn").disabled = true;
+      statusEl.innerText = "SUCCESS! DAI sent to your wallet. Tx Hash: " + receipt.hash;
+    } catch (err) {
+      statusEl.innerText = "Error: " + (err.reason || err.message);
+    }
+  }
+
+  async function loadAdminStats() {
+    const key = document.getElementById("adminKey").value;
+    const res = await fetch(API_UI0����������������ٕ�٥�܈��쁡�������쀉൅��������聭������(��������Ё���݅�Ёɕ̹�ͽ����(���������ɕ̹����ɕ��ɸ�����С����ɽȁ����U���ѡ�ɥ镐���(�������յ��й���������	�%������Aɽ��Ј�������Q��Ѐ􀈐���������ɕ�ѽ�Aɽ����Ѡ�(�������յ��й���������	�%����ɽ��I�؈�������Q��Ѐ􀈐�������ɽ���I�ٕ�Ք�Ѡ�(�������յ��й���������	�%��������������������Q��Ѐ􀈐�������������U���������������$��(�������յ��й���������	�%���������չ�̈�������Q��Ѐ􁐹��ѥٕA����̀�����ѥٔ����������ɽ镹	��̀����ɽ镸��(���(�͍ɥ���(𽉽���(�ѵ��(
