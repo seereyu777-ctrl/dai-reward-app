@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>DAI Reflex Arena | 10,000 Levels</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #070b14;
+      color: #f8fafc;
+      margin: 0;
+      padding: 14px;
+      display: flex;
+      justify-content: center;
+    }
+    .wrap { width: 100%; max-width: 460px; }
+    .card {
+      background: #111827;
+      border: 1px solid #1f2937;
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.45);
+    }
+    .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: #451a03;
+      color: #fbbf24;
+      border: 1px solid #d97706;
+    }
+    .pill.online { background: #064e3b; color: #34d399; border-color: #059669; }
+    .balBox {
+      background: #090e1a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      margin: 10px 0;
+    }
+    .bal { font-size: 28px; font-weight: 900; color: #10b981; }
+    .sub { font-size: 12px; color: #9ca3af; word-break: break-all; }
+    .btn {
+      width: 100%;
+      padding: 12px 14px;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      background: #10b981;
+      margin-top: 8px;
+    }
+    .btn:disabled { background: #374151; color: #9ca3af; cursor: not-allowed; }
+    .btn-blue { background: #2563eb; }
+    .btn-gold { background: #f59e0b; color: #111827; }
+    #arena {
+      position: relative;
+      height: 240px;
+      background: #050811;
+      border: 2px solid #2563eb;
+      border-radius: 12px;
+      overflow: hidden;
+      margin: 10px 0;
+      touch-action: manipulation;
+      user-select: none;
+    }
+    #target {
+      position: absolute;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 18px #10b981;
+      cursor: pointer;
+      display: none;
+    }
+    input[type="text"], input[type="password"], input[type="number"] {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border-radius: 9px;
+      border: 1px solid #374151;
+      background: #090e1a;
+      color: #fff;
+      font-size: 13px;
+    }
+    .status { font-size: 12px; color: #60a5fa; text-align: center; margin-top: 8px; min-height: 16px; }
+    .toggleBox {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #090e1a;
+      padding: 9px 12px;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+      margin-top: 8px;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- 1. METAMASK CONNECT & AUTO-CLAIM FORM -->
+    <div class="card">
+      <div class="row">
+        <strong style="font-size:18px">DAI Reflex Arena</strong>
+        <span id="apiPill" class="pill">Standby</span>
+      </div>
+
+      <form onsubmit="connectMetaMask(event)" style="margin-top:10px">
+        <input id="walletInput" type="text" placeholder="MetaMask 0x... Address (Auto-fills on Connect)" />
+        <button id="connectBtn" type="submit" class="btn btn-blue">Connect MetaMask Wallet</button>
+      </form>
+
+      <div class="balBox">
+        <div class="sub">Claimable Reward Balance</div>
+        <div id="daiBal" class="bal">$0.0000 DAI</div>
+      </div>
+
+      <div class="toggleBox">
+        <span>Auto-Claim DAI to MetaMask ($1.00+ Min)</span>
+        <input id="autoClaimChk" type="checkbox" checked />
+      </div>
+
+      <button id="claimBtn" class="btn" onclick="claimDai(false)" disabled>Claim DAI Now ($1.00 Min)</button>
+      <div id="statusTxt" class="status"></div>
+    </div>
+
+    <!-- 2. 10,000-LEVEL REFLEX ARENA -->
+    <div class="card">
+      <div class="row" style="font-size:13px;font-weight:bold">
+        <span>Level <b id="lvlTxt">1</b> / 10,000</span>
+        <span>Goal: <b id="goalTxt">45</b> pts</span>
+        <span>Time: <b id="timeTxt">20</b>s</span>
+      </div>
+      <div class="row" style="font-size:13px;font-weight:bold;margin-top:6px">
+        <span>Score: <b id="scoreTxt">0</b></span>
+        <span>Unlocked: <b id="maxTxt">1</b></span>
+      </div>
+
+      <div id="arena">
+        <div id="target" onclick="hitTarget()"></div>
+      </div>
+
+      <button id="playBtn" class="btn" onclick="unlockAndPlay(1, 5)">Play Level 1 (FREE)</button>
+      <button id="bundleBtn" class="btn btn-gold" onclick="unlockAndPlay(10, 50)">Unlock 10-Level Bundle ($50.00 DAI)</button>
+    </div>
+
+    <!-- 3. REFERRAL INVITE LINK -->
+    <div class="card">
+      <strong style="font-size:15px">Share Invite Link</strong>
+      <div id="refTxt" class="sub" style="margin-top:6px">Connect MetaMask to generate your invite link</div>
+      <button class="btn btn-blue" onclick="copyInvite()">Copy Referral Link</button>
+    </div>
+
+    <!-- 4. CREATOR PROFIT SWEEP TO METAMASK -->
+    <div class="card">
+      <strong style="font-size:15px">Creator Profit Sweep to MetaMask</strong>
+      <form onsubmit="sweepProfit(event)" style="margin-top:8px">
+        <input id="adminKeyIn" type="password" placeholder="Admin Key" />
+        <input id="sweepAddrIn" type="text" placeholder="Personal MetaMask 0x... Address" />
+        <input id="sweepAmtIn" type="number" placeholder="Amount DAI" />
+        <button type="submit" class="btn btn-gold">Send Profit DAI to MetaMask</button>
+      </form>
+      <div id="sweepMsg" class="status"></div>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = 'https://onrender.com';
+    const VAULT_ADDRESS = '0xCF1e58E6eA0BDFf97Fe6856b46Fd094B66613DcE';
+    const DAI_ADDRESS = '0x1c907B4870F1C09C261b6760131438f47b52e2a1';
+    const TREASURY_ADDRESS = '0xE52E9dF5d3563E9D957b2Ffe0c4d478E74342DE4';
+    const TARGET_CHAIN_HEX = '0x14a34';
+
+    let wallet = '';
+    let daiBal = 0;
+    let claiming = false;
+    let level = 1;
+    let maxUnlocked = Number(localStorage.getItem('max_lvl') || 1);
+    let score = 0;
+    let timeLeft = 20;
+    let playing = false;
+    let secTimer = null;
+    let moveTimer = null;
+
+    function pad32(hex) {
+      return hex.replace(/^0x/, '').padStart(64, '0');
+    }
+    function toWeiHex(amountNum) {
+      const whole = BigInt(Math.floor(Number(amountNum)));
+      const wei = whole * 1000000000000000000n;
+      return pad32(wei.toString(16));
+    }
+    function encodeErc20Transfer(to, usdAmount) {
+      return '0xa9059cbb' + pad32(to.toLowerCase()) + toWeiHex(usdAmount);
+    }
+    function encodeClaimReward(amountStr, voucherId, deadline, sig) {
+      const amtHex = pad32(BigInt(amountStr).toString(16));
+      const vidHex = pad32(voucherId);
+      const dlHex = pad32(BigInt(deadline).toString(16));
+      const offsetHex = pad32('80');
+      const cleanSig = sig.replace(/^0x/, '');
+      const sigLenHex = pad32((cleanSig.length / 2).toString(16));
+      const sigPadded = cleanSig.padEnd(Math.ceil(cleanSig.length / 64) * 64, '0');
+      return '0x2f1c6b8b' + amtHex + vidHex + dlHex + offsetHex + sigLenHex + sigPadded;
+    }
+
+    async function waitReceipt(txHash) {
+      for (let i = 0; i < 40; i++) {
+        const rc = await window.ethereum.request({ method: 'eth_getTransactionReceipt', params: [txHash] });
+        if (rc && rc.blockNumber) {
+          if (rc.status === '0x0') throw new Error('Transaction reverted on-chain');
+          return rc;
+        }
+        await new Promise(r => setTimeout(r, 1500));
+      }
+      throw new Error('Transaction confirmation timeout');
+    }
+
+    function pingApi() {
+      fetch(API_URL + '/api/health').then(r => {
+        const pill = document.getElementById('apiPill');
+        if (r.ok) {
+          pill.className = 'pill online';
+          pill.innerText = 'API Online';
+        }
+      }).catch(() => {});
+    }
+    pingApi();
+    setInterval(pingApi, 600000);
+
+    function getGoal(l) { return Math.min(250, 40 + 5 * l); }
+    function getSize(l) { return Math.max(26, 58 - Math.floor(l / 200)); }
+    function getSpeed(l) { return Math.max(450, 2200 - 15 * l); }
+
+    function updateUI() {
+      document.getElementById('lvlTxt').innerText = level;
+      document.getElementById('goalTxt').innerText = getGoal(level);
+      document.getElementById('maxTxt').innerText = maxUnlocked;
+      const btn = document.getElementById('playBtn');
+      if (level === 1) {
+        btn.className = 'btn';
+        btn.innerText = 'Play Level 1 (FREE)';
+      } else if (level <= maxUnlocked) {
+        btn.className = 'btn';
+        btn.innerText = 'Start Level ' + level + ' (Unlocked)';
+      } else {
+        btn.className = 'btn btn-gold';
+        btn.innerText = 'Pay $5.00 DAI • Unlock Level ' + level;
+      }
+    }
+    updateUI();
+
+    async function registerWallet(addr) {
+      wallet = addr;
+      document.getElementById('walletInput').value = addr;
+      document.getElementById('connectBtn').innerText = 'Connected: ' + addr.slice(0, 6) + '...' + addr.slice(-4);
+      document.getElementById('refTxt').innerText = window.location.origin + window.location.pathname + '?ref=' + addr;
+
+      try {
+        const devId = localStorage.getItem('dev_id') || ('dev_' + Math.random().toString(36).slice(2, 12));
+        localStorage.setItem('dev_id', devId);
+        const res = await fetch(API_URL + '/api/register-player', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userAddress: addr, deviceId: devId })
+        });
+        const data = await res.json();
+        const p = Array.isArray(data.player) ? data.player[0] : data.player;
+        if (p) {
+          daiBal = Number(p.dai_balance || 0);
